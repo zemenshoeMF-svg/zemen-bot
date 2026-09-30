@@ -1,264 +1,259 @@
 import logging
-import os
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    CallbackQueryHandler,
-    ContextTypes,
-)
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 
-# Enable robust logging
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
-logger = logging.getLogger(__name__)
+# Enable logging
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 
-# --- CONFIGURATION & LOCALIZATION ---
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
+# Bot Token from @BotFather
+BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"
 
-# Refined bilingual dictionaries using preferred industry terminology
-TEXTS = {
-    "en": {
-        "welcome": (
-            "🌟 *Zemen Shoe Manufacturing PLC* 🌟\n\n"
-            "Addis Ababa's premier B2B manufacturer specializing in high-performance molded rubber soles and industrial shoe components.\n\n"
-            "Select an option below to browse our catalog, discuss custom mold development, or connect with our sales team."
-        ),
-        "btn_catalog": "📦 View Sole Catalog",
-        "btn_custom": "🛠️ Custom Sole Inquiry",
-        "btn_factory": "🏭 Factory & Quality Standards",
-        "btn_contact": "📞 Sales & Direct Contact",
-        "btn_lang": "🇪🇹 አማርኛ / English",
-        "back": "⬅️ Back to Main Menu",
-        "catalog_text": (
-            "📦 *Industrial Rubber Sole Catalog*\n\n"
-            "Engineered for exceptional durability, slip resistance, and heavy-duty wear. "
-            "Choose a product line below to view technical specifications and visual details:"
-        ),
-        "product_1": "🥾 Heavy-Duty Work Boot Sole",
-        "product_2": "👟 Casual TR & Rubber Sole Unit",
-        "product_3": "🏃 Athletic & Trainer Sole Unit",
-        "custom_text": (
-            "🛠️ *Custom Mold Development*\n\n"
-            "We design and manufacture bespoke rubber molds tailored to your exact brand specifications. "
-            "Send your design brief, target volume, and technical requirements straight to our engineering team."
-        ),
-        "factory_text": (
-            "🏭 *Factory & Quality Assurance*\n\n"
-            "Operating from our advanced production facility in Addis Ababa, we utilize precision vulcanization "
-            "machinery and strict quality controls to supply leading footwear brands across the region."
-        ),
-        "contact_text": (
-            "📞 *Corporate Sales Office*\n\n"
-            "• *Location:* Addis Ababa, Ethiopia\n"
-            "• *Email:* sales@zemenshoe.com\n"
-            "• *Phone / Telegram:* +251 900 000 000\n"
-            "• *Working Hours:* Monday – Saturday (2:00 Local - 11:00 Local)"
-        ),
-        "lang_switched": "Switched to English.",
-    },
-    "am": {
-        "welcome": (
-            "🌟 *ዘመን ጫማ ማምረቻ ኃ/የተ/የግ/ማህበር* 🌟\n\n"
-            "በአዲስ አበባ ከተማ የሚገኝ ቀዳሚ የኢንዱስትሪ የጎማ ሶል (Rubber Sole) እና የጫማ ዕቃዎች አምራች ድርጅት።\n\n"
-            "የምርት ካታሎጋችንን ለመመልከት፣ Custom (ብጁ) ሞልድ ማምረቻ ጥያቄ ለማቅረብ ወይም ከሽያጭ ቡድናችን ጋር ለመነጋገር ከታች ያሉትን አማራጮች ይጠቀሙ።"
-        ),
-        "btn_catalog": "📦 የሶል ካታሎግ ይመልከቱ",
-        "btn_custom": "🛠️ Custom Sole Inquiry",
-        "btn_factory": "🏭 ፋብሪካችን እና የጥራት ደረጃ",
-        "btn_contact": "📞 የሽያጭ ማዕከል አድራሻ",
-        "btn_lang": "🇬🇧 English / አማርኛ",
-        "back": "⬅️ ወደ ዋናው ዝርዝር ተመለስ",
-        "catalog_text": (
-            "📦 *የኢንዱስትሪ የጎማ ሶል ምርቶች ዝርዝር*\n\n"
-            "ለረጅም ጊዜ አገልግሎት፣ ለጠንካራ መያዣ (Traction) እና ለከፍተኛ ጫና የማይበገሩ። "
-            "ቴክኒካዊ መግለጫዎችን እና ምስሎችን ለማየት ከታች አንዱን ይምረጡ፦"
-        ),
-        "product_1": "🥾 የሥራ ቦት ጫማ ሶል (Work Boot)",
-        "product_2": "👟 የዕለት ተዕለት ካዥዋል ሶል (Casual TR)",
-        "product_3": "🏃 የስፖርት ጫማ ሶል አሃድ (Athletic Unit)",
-        "custom_text": (
-            "🛠️ *Custom Mold እና ሶል ማምረቻ አገልግሎት*\n\n"
-            "እንደ ድርጅትዎ ፍላጎትና ዲዛይን ትክክለኛ የጎማ ሞልዶችን እናዘጋጃለን። የንድፍ ሐሳብዎን፣ "
-            "የሚፈልጉትን መጠን እና ዝርዝር መረጃ በመላክ ከኛ ጋር ይስሩ።"
-        ),
-        "factory_text": (
-            "🏭 *የፋብሪካችን ምርት እና ጥራት ቁጥጥር*\n\n"
-            "በአዲስ አበባ በሚገኘው ማምረቻችን ዘመናዊ የሙቀት ማጣሪያ (Vulcanization) ቴክኖሎጂዎችን በመጠቀም "
-            "ለአገር ውስጥ እና ለቀጣናው የጫማ አምራቾች ጥራት ያላቸው ምርቶችን እናቀርባለን።"
-        ),
-        "contact_text": (
-            "📞 *የድርጅቱ የሽያጭ እና የኮርፖሬት ማዕከል*\n\n"
-            "• *አድራሻ፦* አዲስ አበባ፣ ኢትዮጵያ\n"
-            "• *ኢሜይል፦* sales@zemenshoe.com\n"
-            "• *ስልክ/ቴሌግራም፦* +251 900 000 000\n"
-            "• *የሥራ ሰዓት፦* ከሰኞ እስከ ቅዳሜ (ከጠዋቱ 2:00 እስከ ማታ 11:00)"
-        ),
-        "lang_switched": "ቋንቋው ወደ አማርኛ ተቀይሯል።",
-    },
+# --- ASSET & MEDIA URLS (Mapped from your uploaded brand files) ---
+ASSETS = {
+    "welcome": "https://i.ibb.co/3s7H2v9/1000401874.png",          # Brand Logo
+    "catalog": "https://i.ibb.co/6y4b2qL/1000401746.jpg",          # Rubber Outsole Technical Banner
+    "rubber": "https://i.ibb.co/9V3h3fP/1000401531.jpg",           # Production Line / Soles
+    "custom": "https://i.ibb.co/8m1z2x5/1000401876.jpg",           # Future Mold & Tech Design
+    "services": "https://i.ibb.co/5L2p8k3/1000401543.jpg",         # Factory Floor Showcase
+    "location": "https://i.ibb.co/4g9J2q7/1000400191.png",         # Google Maps & Factory Layout
+    "qr": "https://i.ibb.co/2M7x9v6/1000401846.png"                # Location QR Code
 }
 
+# --- USER SESSIONS (Temporary memory for registration and ordering) ---
+user_languages = {}  # {user_id: 'am' or 'en'}
+user_states = {}     # Tracks if user is registering, ordering, or reporting
 
-def get_user_lang(context: ContextTypes.DEFAULT_TYPE) -> str:
-    return context.user_data.get("lang", "en")
-
-
-def get_main_keyboard(lang: str) -> InlineKeyboardMarkup:
-    t = TEXTS[lang]
-    keyboard = [
-        [InlineKeyboardButton(t["btn_catalog"], callback_data="menu_catalog")],
-        [InlineKeyboardButton(t["btn_custom"], callback_data="menu_custom")],
-        [
-            InlineKeyboardButton(t["btn_factory"], callback_data="menu_factory"),
-            InlineKeyboardButton(t["btn_contact"], callback_data="menu_contact"),
-        ],
-        [InlineKeyboardButton(t["btn_lang"], callback_data="toggle_lang")],
-    ]
-    return InlineKeyboardMarkup(keyboard)
-
-
-# --- HANDLERS ---
+# ==================== /start COMMAND ====================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    lang = get_user_lang(context)
-    t = TEXTS[lang]
-    keyboard = get_main_keyboard(lang)
-
-    banner_url = "https://images.unsplash.com/photo-1549298916-b41d501d3772?w=800&auto=format&fit=crop&q=80"
-
-    if update.message:
-        await update.message.reply_photo(
-            photo=banner_url, caption=t["welcome"], reply_markup=keyboard, parse_mode="Markdown"
-        )
-    elif update.callback_query:
-        query = update.callback_query
-        await query.answer()
-        try:
-            await query.edit_message_media(
-                media=InputMediaPhoto(media=banner_url, caption=t["welcome"], parse_mode="Markdown"),
-                reply_markup=keyboard,
-            )
-        except Exception:
-            await query.edit_message_caption(caption=t["welcome"], reply_markup=keyboard, parse_mode="Markdown")
-
-
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    data = query.data
-    lang = get_user_lang(context)
-    t = TEXTS[lang]
-
-    back_btn = [[InlineKeyboardButton(t["back"], callback_data="main_menu")]]
-
-    if data == "main_menu":
-        await start(update, context)
-
-    elif data == "toggle_lang":
-        context.user_data["lang"] = "am" if lang == "en" else "en"
-        new_lang = context.user_data["lang"]
-        await query.answer(TEXTS[new_lang]["lang_switched"], show_alert=True)
-        await start(update, context)
-
-    elif data == "menu_catalog":
-        keyboard = [
-            [InlineKeyboardButton(t["product_1"], callback_data="prod_1")],
-            [InlineKeyboardButton(t["product_2"], callback_data="prod_2")],
-            [InlineKeyboardButton(t["product_3"], callback_data="prod_3")],
-            [InlineKeyboardButton(t["back"], callback_data="main_menu")],
-        ]
-        await query.edit_message_caption(
-            caption=t["catalog_text"], reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown"
-        )
-
-    elif data in ["prod_1", "prod_2", "prod_3"]:
-        prod_names = {
-            "prod_1": ("Heavy-Duty Work Boot Sole", "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=800&auto=format&fit=crop&q=80"),
-            "prod_2": ("Casual TR & Rubber Sole Unit", "https://images.unsplash.com/photo-1560769629-975ec94e6a86?w=800&auto=format&fit=crop&q=80"),
-            "prod_3": ("Athletic & Trainer Sole Unit", "https://images.unsplash.com/photo-1539185441755-769473a23570?w=800&auto=format&fit=crop&q=80"),
-        }
-        p_name, p_img = prod_names[data]
-        caption = f"📦 *{p_name}*\n\n• High-grade durable rubber compound.\n• Superior slip and abrasion resistance.\n• Custom color matching & hardness options available for bulk manufacturing."
-        
-        keyboard = [
-            [InlineKeyboardButton("⬅️ Back to Catalog", callback_data="menu_catalog")],
-            [InlineKeyboardButton(t["back"], callback_data="main_menu")],
-        ]
-        try:
-            await query.edit_message_media(
-                media=InputMediaPhoto(media=p_img, caption=caption, parse_mode="Markdown"),
-                reply_markup=InlineKeyboardMarkup(keyboard),
-            )
-        except Exception:
-            await query.edit_message_caption(caption=caption, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
-
-    elif data == "menu_custom":
-        await query.edit_message_caption(
-            caption=t["custom_text"], reply_markup=InlineKeyboardMarkup(back_btn), parse_mode="Markdown"
-        )
-
-    elif data == "menu_factory":
-        await query.edit_message_caption(
-            caption=t["factory_text"], reply_markup=InlineKeyboardMarkup(back_btn), parse_mode="Markdown"
-        )
-
-    elif data == "menu_contact":
-        await query.edit_message_caption(
-            caption=t["contact_text"], reply_markup=InlineKeyboardMarkup(back_btn), parse_mode="Markdown"
-        )
-
-
-async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    channel_id = os.getenv("CHANNEL_ID")
-    if not channel_id:
-        if update.message:
-            await update.message.reply_text("Error: CHANNEL_ID environment variable not set.")
-        return
-
-    broadcast_caption = (
-        "🔔 *Zemen Shoe Manufacturing PLC - Corporate Update*\n\n"
-        "Supplying premium-grade molded rubber soles and industrial shoe components to manufacturers and partners across East Africa.\n\n"
-        "📍 *Location:* Addis Ababa, Ethiopia\n"
-        "📞 *Direct Sales:* +251 900 000 000\n"
-        "🤖 *Interactive Catalog Bot:* @ZemenShoes_Bot\n\n"
-        "#RubberSoles #CustomSoles #B2BFootwear #ZemenShoes #MadeInEthiopia"
+    user_id = update.effective_user.id
+    user_languages[user_id] = 'am'  # Default to Amharic
+    
+    keyboard = [
+        [InlineKeyboardButton("🇪🇹 አማርኛ (Amharic)", callback_data="lang_am"), InlineKeyboardButton("🇬🇧 English", callback_data="lang_en")],
+        [InlineKeyboardButton("👟 የራበር ሶል ካታሎግ | Catalog", callback_data="menu_catalog")],
+        [InlineKeyboardButton("📝 እንደ ደንበኛ ይመዝገቡ | Register Client", callback_data="register_client")],
+        [InlineKeyboardButton("📦 ትዕዛዝ ይስጡ | Place Bulk Order", callback_data="place_order")],
+        [InlineKeyboardButton("🛡️ የውል ምስጢራዊነት (NDA) | Security", callback_data="menu_services")],
+        [InlineKeyboardButton("📍 የፋብሪካ አድራሻ | Location & QR", callback_data="menu_location")],
+        [InlineKeyboardButton("📢 የቴሌግራም ቻናል ይቀላቀሉ | Join Channel", callback_data="join_channel")],
+        [InlineKeyboardButton("📞 የሽያጭ ክፍል | Contact B2B", callback_data="menu_contact")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    caption = (
+        "🇪🇹 <b>እንኳን ወደ ዘመን ጫማ ማኑፋክቸሪንግ ኃ.የተ.የግ.ማ በደህና መጡ!</b>\n"
+        "<i>\"ጽኑ ሶል፣ ትልቅ እርምጃ!\"</i>\n\n"
+        "የወንዶች የራበር ሶል አምራች | በቻይናውያን ባለሙያዎች የሚመራ | ለጫማ ፋብሪካዎች የሚሆን የራበር ሶል እና የሞልድ ሥራ | አዲስ አበባ\n\n"
+        "-------------------------------\n"
+        "🇬🇧 <b>Welcome to Zemen Shoe Manufacturing PLC</b>\n"
+        "<i>B2B Men's Shoe Soles Manufacturer | Chinese Expert-Led | Custom Rubber & Molds</i>\n\n"
+        "👇 <i>ቋንቋ ይምረጡ ወይም ከታች ያሉትን አማራጮች ይጠቀሙ / Select an option below:</i>"
     )
     
-    banner_url = "https://images.unsplash.com/photo-1549298916-b41d501d3772?w=800&auto=format&fit=crop&q=80"
+    if update.message:
+        await update.message.reply_photo(photo=ASSETS["welcome"], caption=caption, parse_mode="HTML", reply_markup=reply_markup)
+    elif update.callback_query:
+        await update.callback_query.message.reply_photo(photo=ASSETS["welcome"], caption=caption, parse_mode="HTML", reply_markup=reply_markup)
 
-    try:
-        await context.bot.send_photo(
-            chat_id=channel_id,
-            photo=banner_url,
-            caption=broadcast_caption,
-            parse_mode="Markdown"
-        )
-        if update.message:
-            await update.message.reply_text("✅ Catalog update successfully broadcasted to the official channel.")
-    except Exception as e:
-        logger.error(f"Failed to broadcast: {e}")
-        if update.message:
-            await update.message.reply_text(f"❌ Broadcast failed: {e}")
+# ==================== LANGUAGE TOGGLE ====================
+async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    
+    if query.data == "lang_am":
+        user_languages[user_id] = 'am'
+        await query.edit_message_caption(caption="✅ ቋንቋ ወደ አማርኛ ተቀይሯል። ከታች ካሉት አማራጮች ይምረጡ:", parse_mode="HTML")
+    else:
+        user_languages[user_id] = 'en'
+        await query.edit_message_caption(caption="✅ Language switched to English. Choose an option below:", parse_mode="HTML")
+    
+    await start(update, context)
 
+# ==================== CATALOG & PRODUCTS ====================
+async def catalog_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    text = (
+        "👟 <b>Zemen B2B Rubber Sole Catalog / የራበር ሶል ካታሎግ</b>\n\n"
+        "1️⃣ <b>High-Volume Vulcanized Rubber Soles</b>\n"
+        "• ለኢንዱስትሪ ደህንነት እና ለቀን ጫማዎች የሚሆን 100% የራበር ውህድ።\n\n"
+        "2️⃣ <b>Custom Rubber Outsoles & Mold Tooling</b>\n"
+        "• በራሳችሁ ብራንድ፣ ሎጎ እና ስታይል የሚሰራ የሞልድ ስራ በጥብቅ NDA።\n\n"
+        "👇 <i>ምርቶቹን ለመመልከት ይጫኑ / Select below:</i>"
+    )
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("👞 Standard Rubber Soles", callback_data="prod_rubber")],
+        [InlineKeyboardButton("🛠️ Custom Molds & Tooling", callback_data="prod_custom")],
+        [InlineKeyboardButton("◀️️ Main Menu / ዋና ገጽ", callback_data="main_menu")]
+    ])
+    await query.message.reply_photo(photo=ASSETS["catalog"], caption=text, parse_mode="HTML", reply_markup=keyboard)
 
-async def fn_error(update: object, context: ContextTypes.DEFAULT_TYPE):
-    logger.error(msg="Exception while handling an update:", exc_info=context.error)
+async def prod_rubber(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    text = (
+        "👞 <b>High-Volume Vulcanized Rubber Outsoles</b>\n\n"
+        "• <b>Compound:</b> 100% High-Grade Vulcanized Rubber Matrix.\n"
+        "• <b>Performance:</b> Exceptional abrasion resistance & flex endurance.\n"
+        "• <b>Safety:</b> Oil-resistant, anti-slip tread profiles.\n\n"
+        "🇪🇹 ለጫማ ፋብሪካዎች የምርት መስመር በብዛት የሚቀርብ አስተማማኝ የራበር ሶል።"
+    )
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("📦 Place Order / ትዕዛዝ ስጡ", callback_data="place_order")],
+        [InlineKeyboardButton("◀️️ Back / ተመለስ", callback_data="menu_catalog")]
+    ])
+    await query.message.reply_photo(photo=ASSETS["rubber"], caption=text, parse_mode="HTML", reply_markup=keyboard)
 
+async def prod_custom(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    text = (
+        "🛠️ <b>Custom Rubber Outsoles & Mold Tooling</b>\n\n"
+        "• <b>Brand Customization:</b> Your factory logo and custom sizing runs.\n"
+        "• <b>Strict NDA:</b> Your proprietary molds are used exclusively for you.\n\n"
+        "🇪🇹 የርሶን ልዩ ንድፍ በቻይናውያን ባለሙያዎች ትክክለኛነት እናመራለን።"
+    )
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("📦 Request Custom Mold / የሞልድ ትዕዛዝ", callback_data="place_order")],
+        [InlineKeyboardButton("◀️ Back / ተመለስ", callback_data="menu_catalog")]
+    ])
+    await query.message.reply_photo(photo=ASSETS["custom"], caption=text, parse_mode="HTML", reply_markup=keyboard)
 
-def main():
-    if TOKEN == "YOUR_BOT_TOKEN_HERE":
-        logger.warning("WARNING: Please set a valid TELEGRAM_BOT_TOKEN environment variable.")
+# ==================== CLIENT REGISTRATION ====================
+async def register_client(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    user_states[user_id] = "waiting_for_contact"
+    
+    # Request phone number button
+    contact_button = KeyboardButton(text="📱 ስልክ ቁጥሬን አጋራ / Share Contact", request_contact=True)
+    reply_markup = ReplyKeyboardMarkup([[contact_button]], resize_keyboard=True, one_time_keyboard=True)
+    
+    await query.message.reply_text(
+        "📝 <b>እንደ ፋብሪካ/ደንበኛ ለመመዝገብ</b>\n\n"
+        "እባክዎ ከታች ያለውን <b>'ስልክ ቁጥሬን አጋራ'</b> የሚለውን ቁልፍ በመጫን ስልክዎን ያጋሩ።\n\n"
+        "<i>Please tap the button below to share your phone number and complete B2B client registration.</i>",
+        parse_mode="HTML",
+        reply_markup=reply_markup
+    )
+
+async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    user_id = user.id
+    if user_states.get(user_id) == "waiting_for_contact":
+        phone_number = update.message.contact.phone_number
+        user_states[user_id] = "registered"
         
-    app = ApplicationBuilder().token(TOKEN).build()
+        await update.message.reply_text(
+            f"✅ <b>ምዝገባዎ ተጠናቋል! (Registration Successful)</b>\n\n"
+            f"ስም: {user.full_name}\n"
+            f"ስልክ: {phone_number}\n\n"
+            "አሁን የራበር ሶል ትዕዛዝ መስጠት ወይም ከሽያጭ ክፍላችን ጋር መነጋገር ይችላሉ።",
+            parse_mode="HTML",
+            reply_markup=ReplyKeyboardMarkup([], remove_keyboard=True)
+        )
 
+# ==================== ORDER INTAKE ====================
+async def place_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    text = (
+        "📦 <b>B2B Bulk Order & Custom Inquiry / የትዕዛዝ ማመልከቻ</b>\n\n"
+        "ትዕዛዝዎን ለመጀመር እባክዎ በቀጥታ በስልክ ቁጥሮቻችን ያነጋግሩን ወይም በዋትስአፕ ይጻፉልን፡\n\n"
+        "📞 <b>ስልክ:</b> +251 911 719 676 / +251 911 245 457\n"
+        "💬 <b>WhatsApp:</b> https://wa.me/251911719676\n"
+        "📧 <b>Email:</b> zemenshoemanufacturing@gmail.com"
+    )
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("💬 Chat on WhatsApp", url="https://wa.me/251911719676")],
+        [InlineKeyboardButton("📞 Call Sales Hotline", url="tel:+251911719676")],
+        [InlineKeyboardButton("◀️ Main Menu / ዋና ገጽ", callback_data="main_menu")]
+    ])
+    await query.message.reply_text(text, parse_mode="HTML", reply_markup=keyboard)
+
+# ==================== SECURITY & SERVICES ====================
+async def services_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    text = (
+        "🛡️ <b>Security, Quality Control & NDA Protection</b>\n\n"
+        "• <b>Chinese Expert-Led:</b> Overseen by senior rubber compounding engineers.\n"
+        "• <b>Complete NDA Protection:</b> Legal confidentiality safeguarding your designs.\n"
+        "• <b>Isolated Mold Vaults:</b> Zero risk of unauthorized replication.\n\n"
+        "🇪🇹 የርስዎ የሶል ንድፍ በውል የተጠበቀ እና ለሶስተኛ ወገን የማይሰጥ መሆኑን እናረጋግጣለን።"
+    )
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Main Menu / ዋና ገጽ", callback_data="main_menu")]])
+    await query.message.reply_photo(photo=ASSETS["services"], caption=text, parse_mode="HTML", reply_markup=keyboard)
+
+# ==================== LOCATION & QR ====================
+async def location_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    text = (
+        "📍 <b>Factory Location & Google Maps</b>\n\n"
+        "<b>Zemen Shoe Manufacturing PLC</b>\n"
+        "Addis Ababa, Ethiopia (Beyond Shewa Market / Abebeche Building Area)\n\n"
+        "🗺️ <i>Scan the QR code or tap the button below for direct map navigation.</i>"
+    )
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🗺️ Open Google Maps", url="https://maps.app.goo.gl/y1VoGfmMfwen1vLa8")],
+        [InlineKeyboardButton("⭐ Google Review", url="https://search.google.com/local/writereview?placeid=ChIJ4XGOQieFSxYR5d0RqiYShLI")],
+        [InlineKeyboardButton("◀️ Main Menu / ዋና ገጽ", callback_data="main_menu")]
+    ])
+    # Send QR code image first, then details
+    await query.message.reply_photo(photo=ASSETS["qr"], caption="📷 <b>Zemen Official Location QR Code</b>", parse_mode="HTML")
+    await query.message.reply_photo(photo=ASSETS["location"], caption=text, parse_mode="HTML", reply_markup=keyboard)
+
+# ==================== CHANNEL INVITE & CONTACT ====================
+async def join_channel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    text = "📢 <b>የዘመን ጫማ ማኑፋክቸሪንግ ኦፊሴላዊ ቻናል ይቀላቀሉ!</b>\n\nዕለታዊ የምርት ዝመናዎችን እና አዳዲስ የሶል ዲዛይኖችን ይከታተሉ።"
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("📢 Join Telegram Channel", url="https://t.me/ZemenShoes_Bot")],
+        [InlineKeyboardButton("◀️ Main Menu / ዋና ገጽ", callback_data="main_menu")]
+    ])
+    await query.message.reply_text(text, parse_mode="HTML", reply_markup=keyboard)
+
+async def contact_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    text = (
+        "📞 <b>Contact Zemen B2B Sales & Engineering</b>\n\n"
+        "• <b>Phones:</b> +251 911 719 676 / +251 911 245 457\n"
+        "• <b>WhatsApp:</b> https://wa.me/251911719676\n"
+        "• <b>Email:</b> zemenshoemanufacturing@gmail.com\n"
+        "• <b>Location:</b> Addis Ababa (Beyond Shewa Market)"
+    )
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Main Menu / ዋና ገጽ", callback_data="main_menu")]])
+    await query.message.reply_text(text, parse_mode="HTML", reply_markup=keyboard)
+
+# ==================== MAIN APPLICATION ROUTER ====================
+def main():
+    app = Application.builder().token(BOT_TOKEN).build()
+    
+    # Command & Callback Handlers
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("broadcast", broadcast_command))
-    app.add_handler(CallbackQueryHandler(button_handler))
-    app.add_error_handler(fn_error)
-
-    logger.info("Zemen Shoe Manufacturing Bot is running smoothly...")
+    app.add_handler(CallbackQueryHandler(set_language, pattern="^lang_"))
+    app.add_handler(CallbackQueryHandler(catalog_menu, pattern="^menu_catalog$"))
+    app.add_handler(CallbackQueryHandler(prod_rubber, pattern="^prod_rubber$"))
+    app.add_handler(CallbackQueryHandler(prod_custom, pattern="^prod_custom$"))
+    app.add_handler(CallbackQueryHandler(register_client, pattern="^register_client$"))
+    app.add_handler(CallbackQueryHandler(place_order, pattern="^place_order$"))
+    app.add_handler(CallbackQueryHandler(services_menu, pattern="^menu_services$"))
+    app.add_handler(CallbackQueryHandler(location_menu, pattern="^menu_location$"))
+    app.add_handler(CallbackQueryHandler(join_channel, pattern="^join_channel$"))
+    app.add_handler(CallbackQueryHandler(contact_menu, pattern="^menu_contact$"))
+    app.add_handler(CallbackQueryHandler(start, pattern="^main_menu$"))
+    
+    # Contact Share Handler
+    app.add_handler(MessageHandler(filters.CONTACT, handle_contact))
+    
+    print("🚀 Zemen Enterprise B2B Bot is fully active and deployed...")
     app.run_polling()
-
 
 if __name__ == "__main__":
     main()
