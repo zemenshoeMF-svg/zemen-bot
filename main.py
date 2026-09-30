@@ -6,8 +6,6 @@ from telegram.ext import (
     CommandHandler,
     CallbackQueryHandler,
     ContextTypes,
-    MessageHandler,
-    filters,
 )
 
 # Enable robust logging
@@ -19,78 +17,79 @@ logger = logging.getLogger(__name__)
 # --- CONFIGURATION & LOCALIZATION ---
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
 
-# Multilanguage dictionaries
+# Refined bilingual dictionaries using preferred industry terminology
 TEXTS = {
     "en": {
         "welcome": (
-            "🌟 *Welcome to Zemen Shoe Manufacturing PLC* 🌟\n\n"
-            "Premier B2B Manufacturer of Custom Molded Rubber Soles in Addis Ababa, Ethiopia.\n"
-            "Choose an option below to explore our high-performance industrial catalog, request custom tooling, "
-            "or connect directly with our sales team."
+            "🌟 *Zemen Shoe Manufacturing PLC* 🌟\n\n"
+            "Addis Ababa's premier B2B manufacturer specializing in high-performance molded rubber soles and industrial shoe components.\n\n"
+            "Select an option below to browse our catalog, discuss custom mold development, or connect with our sales team."
         ),
         "btn_catalog": "📦 View Sole Catalog",
         "btn_custom": "🛠️ Custom Sole Inquiry",
-        "btn_factory": "🏭 Factory & Quality",
-        "btn_contact": "📞 Sales & Contact",
+        "btn_factory": "🏭 Factory & Quality Standards",
+        "btn_contact": "📞 Sales & Direct Contact",
         "btn_lang": "🇪🇹 አማርኛ / English",
         "back": "⬅️ Back to Main Menu",
         "catalog_text": (
-            "📦 *Zemen B2B Rubber Sole Catalog*\n\n"
-            "Engineered for durability, maximum traction, and heavy-duty wear resistance.\n"
-            "Select a product line below to view technical specifications and high-resolution visuals:"
+            "📦 *Industrial Rubber Sole Catalog*\n\n"
+            "Engineered for exceptional durability, slip resistance, and heavy-duty wear. "
+            "Choose a product line below to view technical specifications and visual details:"
         ),
         "product_1": "🥾 Heavy-Duty Work Boot Sole",
-        "product_2": "👟 Premium Casual TR/Rubber Sole",
+        "product_2": "👟 Casual TR & Rubber Sole Unit",
         "product_3": "🏃 Athletic & Trainer Sole Unit",
         "custom_text": (
-            "🛠️ *Custom Molded Rubber Sole Development*\n\n"
-            "We build custom molds tailored to your brand specifications. Provide your design brief, "
-            "target volume, and durometer requirements by messaging our team directly."
+            "🛠️ *Custom Mold Development*\n\n"
+            "We design and manufacture bespoke rubber molds tailored to your exact brand specifications. "
+            "Send your design brief, target volume, and technical requirements straight to our engineering team."
         ),
         "factory_text": (
-            "🏭 *Factory Excellence & Quality Control*\n\n"
-            "Located in Addis Ababa, our production facility utilizes state-of-the-art vulcanization and "
-            "precision molding machinery to supply top-tier footwear manufacturers across East Africa."
+            "🏭 *Factory & Quality Assurance*\n\n"
+            "Operating from our advanced production facility in Addis Ababa, we utilize precision vulcanization "
+            "machinery and strict quality controls to supply leading footwear brands across the region."
         ),
         "contact_text": (
-            "📞 *Direct Corporate Communications*\n\n"
+            "📞 *Corporate Sales Office*\n\n"
             "• *Location:* Addis Ababa, Ethiopia\n"
             "• *Email:* sales@zemenshoe.com\n"
             "• *Phone / Telegram:* +251 900 000 000\n"
-            "• *Business Hours:* Mon - Sat (8:00 AM - 5:00 EAT)"
+            "• *Working Hours:* Monday – Saturday (2:00 Local - 11:00 Local)"
         ),
-        "lang_switched": "language switched to English successfully.",
+        "lang_switched": "Switched to English.",
     },
     "am": {
         "welcome": (
-            "🌟 *እንኳን ደህና መጡ ወደ ዘመን ጫማ ማምረቻ ኃ/የተ/የግ/ማህበር* 🌟\n\n"
-            " በአዲስ አበባ፣ ኢትዮጵያ የሚገኝ ቀዳሚ የጎማ ሶል (Rubber Sole) አምራች ድርጅት።\n"
-            "ከዚህ በታች ያሉትን አማራጮች በመጠቀም የምርት ካታሎጋችንን ይመልከቱ፣ የንግድ ጥያቄዎችን ያቅርቡ ወይም ከሽያጭ ቡድናችን ጋር ይገናኙ።"
+            "🌟 *ዘመን ጫማ ማምረቻ ኃ/የተ/የግ/ማህበር* 🌟\n\n"
+            "በአዲስ አበባ ከተማ የሚገኝ ቀዳሚ የኢንዱስትሪ የጎማ ሶል (Rubber Sole) እና የጫማ ዕቃዎች አምራች ድርጅት።\n\n"
+            "የምርት ካታሎጋችንን ለመመልከት፣ Custom (ብጁ) ሞልድ ማምረቻ ጥያቄ ለማቅረብ ወይም ከሽያጭ ቡድናችን ጋር ለመነጋገር ከታች ያሉትን አማራጮች ይጠቀሙ።"
         ),
         "btn_catalog": "📦 የሶል ካታሎግ ይመልከቱ",
-        "btn_custom": "🛠️ ብጁ የሶል ማምረቻ ጥያቄ",
-        "btn_factory": "🏭 የፋብሪካ መረጃ እና ጥራት",
-        "btn_contact": "📞 የሽያጭ ማዕከል እና አድራሻ",
+        "btn_custom": "🛠️ Custom Sole Inquiry",
+        "btn_factory": "🏭 ፋብሪካችን እና የጥራት ደረጃ",
+        "btn_contact": "📞 የሽያጭ ማዕከል አድራሻ",
         "btn_lang": "🇬🇧 English / አማርኛ",
-        "back": "⬅️ ወደ ዋናው ዝርዝር ይመለሱ",
+        "back": "⬅️ ወደ ዋናው ዝርዝር ተመለስ",
         "catalog_text": (
-            "📦 *የዘመን የጎማ ሶል ምርቶች*\n\n"
-            "ለረጅም ጊዜ አገልግሎት፣ ለጠንካራ መያዣ (traction) እና ለከፍተኛ ጥራት የተነደፉ።\n"
+            "📦 *የኢንዱስትሪ የጎማ ሶል ምርቶች ዝርዝር*\n\n"
+            "ለረጅም ጊዜ አገልግሎት፣ ለጠንካራ መያዣ (Traction) እና ለከፍተኛ ጫና የማይበገሩ። "
             "ቴክኒካዊ መግለጫዎችን እና ምስሎችን ለማየት ከታች አንዱን ይምረጡ፦"
         ),
         "product_1": "🥾 የሥራ ቦት ጫማ ሶል (Work Boot)",
-        "product_2": "👟 የዕለት ተዕለት ፕሪሚየም ሶል (Casual TR)",
-        "product_3": "🏃 የስፖርት ጫማ ሶል (Athletic Unit)",
+        "product_2": "👟 የዕለት ተዕለት ካዥዋል ሶል (Casual TR)",
+        "product_3": "🏃 የስፖርት ጫማ ሶል አሃድ (Athletic Unit)",
         "custom_text": (
-            "🛠️ *ብጁ የጎማ ሶል ማምረቻ አገልግሎት*\n\n"
-            "እንደ የምርት ስምዎ ፍላጎት ትክክለኛ ሞልዶችን እናዘጋጃለን። የንድፍ ሐሳብዎን እና የሚፈልጉትን መጠን በመላክ አብረውን ይስሩ።"
+            "🛠️ *Custom Mold እና ሶል ማምረቻ አገልግሎት*\n\n"
+            "እንደ ድርጅትዎ ፍላጎትና ዲዛይን ትክክለኛ የጎማ ሞልዶችን እናዘጋጃለን። የንድፍ ሐሳብዎን፣ "
+            "የሚፈልጉትን መጠን እና ዝርዝር መረጃ በመላክ ከኛ ጋር ይስሩ።"
         ),
         "factory_text": (
-            "🏭 *የፋብሪካችን የጥራት ደረጃ*\n\n"
-            "በአዲስ አበባ የሚገኘው ማምረቻችን ዘመናዊ የሙቀት ማጣሪያ (vulcanization) እና የናሙና ማምረቻ ቴክኖሎጂዎችን ይጠቀማል።"
+            "🏭 *የፋብሪካችን ምርት እና ጥራት ቁጥጥር*\n\n"
+            "በአዲስ አበባ በሚገኘው ማምረቻችን ዘመናዊ የሙቀት ማጣሪያ (Vulcanization) ቴክኖሎጂዎችን በመጠቀም "
+            "ለአገር ውስጥ እና ለቀጣናው የጫማ አምራቾች ጥራት ያላቸው ምርቶችን እናቀርባለን።"
         ),
         "contact_text": (
-            "📞 *የድርጅቱ አድራሻ እና የስልክ ቁጥሮች*\n\n"
+            "📞 *የድርጅቱ የሽያጭ እና የኮርፖሬት ማዕከል*\n\n"
             "• *አድራሻ፦* አዲስ አበባ፣ ኢትዮጵያ\n"
             "• *ኢሜይል፦* sales@zemenshoe.com\n"
             "• *ስልክ/ቴሌግራም፦* +251 900 000 000\n"
@@ -175,11 +174,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data in ["prod_1", "prod_2", "prod_3"]:
         prod_names = {
             "prod_1": ("Heavy-Duty Work Boot Sole", "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=800&auto=format&fit=crop&q=80"),
-            "prod_2": ("Premium Casual TR/Rubber Sole", "https://images.unsplash.com/photo-1560769629-975ec94e6a86?w=800&auto=format&fit=crop&q=80"),
+            "prod_2": ("Casual TR & Rubber Sole Unit", "https://images.unsplash.com/photo-1560769629-975ec94e6a86?w=800&auto=format&fit=crop&q=80"),
             "prod_3": ("Athletic & Trainer Sole Unit", "https://images.unsplash.com/photo-1539185441755-769473a23570?w=800&auto=format&fit=crop&q=80"),
         }
         p_name, p_img = prod_names[data]
-        caption = f"📦 *{p_name}*\n\n• High-grade durable rubber composite.\n• Excellent slip resistance.\n• Custom coloring & hardness available on bulk orders."
+        caption = f"📦 *{p_name}*\n\n• High-grade durable rubber compound.\n• Superior slip and abrasion resistance.\n• Custom color matching & hardness options available for bulk manufacturing."
         
         keyboard = [
             [InlineKeyboardButton("⬅️ Back to Catalog", callback_data="menu_catalog")],
@@ -209,7 +208,40 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
-async fn_error(update: object, context: ContextTypes.DEFAULT_TYPE):
+async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    channel_id = os.getenv("CHANNEL_ID")
+    if not channel_id:
+        if update.message:
+            await update.message.reply_text("Error: CHANNEL_ID environment variable not set.")
+        return
+
+    broadcast_caption = (
+        "🔔 *Zemen Shoe Manufacturing PLC - Corporate Update*\n\n"
+        "Supplying premium-grade molded rubber soles and industrial shoe components to manufacturers and partners across East Africa.\n\n"
+        "📍 *Location:* Addis Ababa, Ethiopia\n"
+        "📞 *Direct Sales:* +251 900 000 000\n"
+        "🤖 *Interactive Catalog Bot:* @ZemenShoes_Bot\n\n"
+        "#RubberSoles #CustomSoles #B2BFootwear #ZemenShoes #MadeInEthiopia"
+    )
+    
+    banner_url = "https://images.unsplash.com/photo-1549298916-b41d501d3772?w=800&auto=format&fit=crop&q=80"
+
+    try:
+        await context.bot.send_photo(
+            chat_id=channel_id,
+            photo=banner_url,
+            caption=broadcast_caption,
+            parse_mode="Markdown"
+        )
+        if update.message:
+            await update.message.reply_text("✅ Catalog update successfully broadcasted to the official channel.")
+    except Exception as e:
+        logger.error(f"Failed to broadcast: {e}")
+        if update.message:
+            await update.message.reply_text(f"❌ Broadcast failed: {e}")
+
+
+async def fn_error(update: object, context: ContextTypes.DEFAULT_TYPE):
     logger.error(msg="Exception while handling an update:", exc_info=context.error)
 
 
@@ -220,10 +252,11 @@ def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("broadcast", broadcast_command))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_error_handler(fn_error)
 
-    logger.info("Zemen Shoe Manufacturing Bot is starting up successfully...")
+    logger.info("Zemen Shoe Manufacturing Bot is running smoothly...")
     app.run_polling()
 
 
