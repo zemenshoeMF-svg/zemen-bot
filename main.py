@@ -287,4 +287,25 @@ def main():
     app.add_handler(CommandHandler("location", location_menu))
     app.add_handler(CommandHandler("contact", contact_menu))
 
-    # Inline keyboard callbac
+    # Inline keyboard callbacks
+    app.add_handler(CallbackQueryHandler(set_language, pattern="^lang_"))
+    app.add_handler(CallbackQueryHandler(catalog_menu, pattern="^menu_catalog$"))
+    app.add_handler(CallbackQueryHandler(prod_rubber, pattern="^prod_rubber$"))
+    app.add_handler(CallbackQueryHandler(prod_custom, pattern="^prod_custom$"))
+    app.add_handler(CallbackQueryHandler(register_client, pattern="^register_client$"))
+    app.add_handler(CallbackQueryHandler(place_order, pattern="^place_order$"))
+    app.add_handler(CallbackQueryHandler(services_menu, pattern="^menu_services$"))
+    app.add_handler(CallbackQueryHandler(location_menu, pattern="^menu_location$"))
+    app.add_handler(CallbackQueryHandler(join_channel, pattern="^join_channel$"))
+    app.add_handler(CallbackQueryHandler(contact_menu, pattern="^menu_contact$"))
+    app.add_handler(CallbackQueryHandler(start, pattern="^main_menu$"))
+
+    app.add_handler(MessageHandler(filters.CONTACT, handle_contact))
+    app.add_error_handler(on_error)
+
+    print("🚀 Zemen Enterprise B2B Bot is fully active and deployed...")
+    app.run_polling()
+
+
+if __name__ == "__main__":
+    main()
